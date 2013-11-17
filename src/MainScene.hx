@@ -17,7 +17,7 @@ class MainScene extends Scene {
 //    canvas.fill(new Rectangle(HXP.width-4,HXP.halfHeight-2,2,6), 0x00ffff);
 
     add(new Entity(0, 0, canvas));
-    add(new Square());
+    add(new HyperCube());
 	}
 
 }
