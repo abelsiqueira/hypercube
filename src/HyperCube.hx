@@ -3,7 +3,7 @@ import com.haxepunk.HXP;
 import com.haxepunk.graphics.Canvas;
 import flash.geom.Rectangle;
 
-typedef Point = {x:Float, y:Float, z:Float, w:Float};
+typedef Point = {x:Float, y:Float, ?z:Float, ?w:Float};
 
 class HyperCube extends Entity {
 
@@ -15,13 +15,18 @@ class HyperCube extends Entity {
   private var count:Int = 0;
   private var N:Int = 2*2*2*2;
   
-  private var speeda:Float = 3.14/32;
-  private var speedb:Float = 3.14/64;
-  private var speedc:Float = 1e-3;
+  private var speeda:Float = 3.14/1024;
+  private var speedb:Float = 3.14/1024;
+  private var speedc:Float = 3.14/64;
+
+  private var axis:Array<Point>;
+
+  private var perspective:Bool = false;
 
   public function new () {
     super();
 
+    axis = [{x:0, y:1}, {x:-0.866, y:-0.5}, {x:0.866, y:-0.5}, {x:0, y:0}];
     board = new Canvas(HXP.width, HXP.height);
     addGraphic(board);
 
@@ -73,18 +78,20 @@ class HyperCube extends Entity {
       var l:Int = Std.int(k/2)%2;
       var m:Int = k%2;
 
-      w[k].x = 50*( ((b[k].x*cosa - b[k].y*sina)*cosb - b[k].z*sinb)*cosc -
-          b[k].w*sinc );
-      w[k].y = 50*( b[k].x*sina + b[k].y*cosa );
-      w[k].z = 50*( (b[k].x*cosa - b[k].y*sina)*sinb + b[k].z*cosb );
-      w[k].w = 50*( ((b[k].x*cosa - b[k].y*sina)*cosb - b[k].z*sinb)*sinc +
-          b[k].w*cosc );
+      w[k].x = ((b[k].x*cosa - b[k].y*sina)*cosb - b[k].z*sinb)*cosc -
+          b[k].w*sinc;
+      w[k].y = b[k].x*sina + b[k].y*cosa;
+      w[k].z = (b[k].x*cosa - b[k].y*sina)*sinb + b[k].z*cosb;
+      w[k].w = ((b[k].x*cosa - b[k].y*sina)*cosb - b[k].z*sinb)*sinc + b[k].w*cosc;
 
-      p[k].x = HXP.halfWidth  + 0.866*w[k].x + 0.5*w[k].z;
-      p[k].y = HXP.halfHeight + 0.866*w[k].y - 0.5*w[k].z;
+      var P:Point = {x:0, y:0};
+      projectPoint(w[k], P);
+
+      p[k].x = P.x;
+      p[k].y = P.y;
     }
 
-    board.fill(new Rectangle(1,1,board.width-2,board.height-2), 0);
+    board.fill(new Rectangle(1,1,board.width-2,board.height-2), 0, 0);
     for (k in 0...N) {
       var i:Int = Std.int(k/8);
       var j:Int = Std.int(k/4)%2;
@@ -111,11 +118,30 @@ class HyperCube extends Entity {
     }
   }
 
+  private function projectPoint (w:Point, P:Point) {
+    if (perspective) {
+      P.x = HXP.halfWidth  + 50*(axis[0].x*w.x + axis[1].x*w.y + axis[2].x*w.z) *
+        Math.pow(2, (w.w+1)/2);
+      P.y = HXP.halfWidth  - 50*(axis[0].y*w.x - axis[1].y*w.y - axis[2].y*w.z) *
+        Math.pow(2, (w.w+1)/2);
+    } else {
+      P.x = HXP.halfWidth  + 50*(axis[0].x*w.x + axis[1].x*w.y + axis[2].x*w.z);
+      P.y = HXP.halfWidth  - 50*(axis[0].y*w.x - axis[1].y*w.y - axis[2].y*w.z);
+    }
+  }
+
   private function drawLines (k:Int, kip:Int) {
-    var x0:Float = p[k].x;
-    var y0:Float = p[k].y;
-    var x1:Float = p[kip].x;
-    var y1:Float = p[kip].y;
+    var p0:Point = {x:p[k].x, y:p[k].y};
+    var p1:Point = {x:p[kip].x, y:p[kip].y};
+  
+    drawLineFromTo (p0, p1, board);
+  }
+
+  private function drawLineFromTo (p0:Point, p1:Point, canvas:Canvas, color=0x666666) {
+    var x0:Float = p0.x;
+    var y0:Float = p0.y;
+    var x1:Float = p1.x;
+    var y1:Float = p1.y;
 
     var dx:Float = x1-x0;
     var dy:Float = y1-y0;
@@ -127,7 +153,19 @@ class HyperCube extends Entity {
       var x:Float = x0 + i*dx;
       var y:Float = y0 + i*dy;
 
-      board.fill(new Rectangle(x,y,1,1), 0x666666, 1.0);
+      canvas.fill(new Rectangle(x,y,1,1), color);
+    }
+  }
+
+  public function drawAxis (canvas:Canvas) {
+    var p:Point = {x:HXP.halfWidth, y:HXP.halfHeight};
+    var pf:Point = {x:p.x, y:p.y};
+    var color:Int = 0x666666;
+
+    for (i in 0...3) {
+      pf.x = p.x + 300*axis[i].x;
+      pf.y = p.y - 300*axis[i].y;
+      drawLineFromTo(p, pf, canvas, color);
     }
   }
 
